@@ -27,7 +27,7 @@ Track your Auggie credits in real-time directly in your VS Code status bar.
 ### Step 3: View Your Usage
 1. With the Network tab open, click the **"View Usage"** button on the subscription page
 
-![View Usage Button](https://raw.githubusercontent.com/svsairevanth12/augment-credits/main/media/credits.png)
+![View Usage Button](https://raw.githubusercontent.com/planetdaz/augment-credits/main/media/credits.png)
 
 ### Step 4: Extract Your Portal URL
 1. In the Network tab, look for a request to `subscription` (full URL: `https://app.augmentcode.com/api/subscription`)
@@ -50,12 +50,12 @@ Track your Auggie credits in real-time directly in your VS Code status bar.
 1. In VS Code, look at the **bottom-right status bar**
 2. Click on the **"Auggie Credits"** item
 
-![Status Bar Location](https://raw.githubusercontent.com/svsairevanth12/augment-credits/main/media/image.png)
+![Status Bar Location](https://raw.githubusercontent.com/planetdaz/augment-credits/main/media/image.png)
 
 3. When prompted, paste the portal URL you copied from Step 4
 4. Press Enter to save
 
-![Paste Portal Link](https://raw.githubusercontent.com/svsairevanth12/augment-credits/main/media/Screenshot%202025-08-09%20002054.png)
+![Paste Portal Link](https://raw.githubusercontent.com/planetdaz/augment-credits/main/media/Screenshot%202025-08-09%20002054.png)
 
 ### Step 6: Verify Setup
 Your credits will now appear in the status bar as: `774,450`
