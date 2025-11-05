@@ -6,6 +6,11 @@ let statusBarItem;
 let updateInterval;
 let context;
 
+// Helper function to format numbers with commas
+function formatNumber(num) {
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
 // Helper function to make HTTPS requests (replaces node-fetch)
 function httpsRequest(url, options = {}) {
     return new Promise((resolve, reject) => {
@@ -81,10 +86,52 @@ function activate(extensionContext) {
             startPolling();
         }
     });
-    
+
+    // Register command to reset Usage A
+    const resetUsageACommand = vscode.commands.registerCommand('auggieCredits.resetUsageA', async () => {
+        const portalLink = context.globalState.get('auggiePortalLink');
+        if (!portalLink) {
+            vscode.window.showWarningMessage('Please set your Auggie portal link first');
+            return;
+        }
+
+        try {
+            const creditsData = await fetchCredits(portalLink);
+            if (creditsData !== null) {
+                await context.globalState.update('usageABaseline', creditsData.balance);
+                vscode.window.showInformationMessage(`Usage A reset to ${formatNumber(creditsData.balance)} credits`);
+                await updateCredits();
+            }
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to reset Usage A: ${error.message}`);
+        }
+    });
+
+    // Register command to reset Usage B
+    const resetUsageBCommand = vscode.commands.registerCommand('auggieCredits.resetUsageB', async () => {
+        const portalLink = context.globalState.get('auggiePortalLink');
+        if (!portalLink) {
+            vscode.window.showWarningMessage('Please set your Auggie portal link first');
+            return;
+        }
+
+        try {
+            const creditsData = await fetchCredits(portalLink);
+            if (creditsData !== null) {
+                await context.globalState.update('usageBBaseline', creditsData.balance);
+                vscode.window.showInformationMessage(`Usage B reset to ${formatNumber(creditsData.balance)} credits`);
+                await updateCredits();
+            }
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to reset Usage B: ${error.message}`);
+        }
+    });
+
     context.subscriptions.push(setLinkCommand);
+    context.subscriptions.push(resetUsageACommand);
+    context.subscriptions.push(resetUsageBCommand);
     context.subscriptions.push(statusBarItem);
-    
+
     // Initialize
     initializeExtension();
 }
@@ -122,11 +169,64 @@ async function updateCredits() {
 
     try {
         // Silent update - no loading spinner shown to user
-        const credits = await fetchCredits(portalLink);
+        const creditsData = await fetchCredits(portalLink);
 
-        if (credits !== null) {
-            statusBarItem.text = `$(credit-card) Auggie Credits: ${credits}`;
-            statusBarItem.tooltip = `Current Auggie credits: ${credits}\nClick to update portal link\nLast updated: ${new Date().toLocaleTimeString()}`;
+        if (creditsData !== null) {
+            const credits = creditsData.balance;
+            const formattedCredits = formatNumber(credits);
+
+            // Get trip odometer values
+            const usageA = context.globalState.get('usageABaseline');
+            const usageB = context.globalState.get('usageBBaseline');
+
+            // Build status text with trip odometers
+            let statusText = `$(credit-card) ${formattedCredits}`;
+
+            if (usageA !== undefined) {
+                const usedA = usageA - credits;
+                statusText += ` | A: ${usedA >= 0 ? '-' : '+'}${formatNumber(Math.abs(usedA))}`;
+            }
+
+            if (usageB !== undefined) {
+                const usedB = usageB - credits;
+                statusText += ` | B: ${usedB >= 0 ? '-' : '+'}${formatNumber(Math.abs(usedB))}`;
+            }
+
+            statusBarItem.text = statusText;
+
+            // Build detailed tooltip
+            let tooltip = `Current Auggie credits: ${formattedCredits}\n`;
+            tooltip += `Last updated: ${new Date().toLocaleTimeString()}\n`;
+
+            if (usageA !== undefined) {
+                const usedA = usageA - credits;
+                tooltip += `\nUsage A: ${usedA >= 0 ? '-' : '+'}${formatNumber(Math.abs(usedA))} credits since reset`;
+            }
+
+            if (usageB !== undefined) {
+                const usedB = usageB - credits;
+                tooltip += `\nUsage B: ${usedB >= 0 ? '-' : '+'}${formatNumber(Math.abs(usedB))} credits since reset`;
+            }
+
+            // Add credit blocks info if available
+            if (creditsData.creditBlocks && creditsData.creditBlocks.length > 0) {
+                tooltip += `\n\nCredit Blocks:`;
+                creditsData.creditBlocks.forEach(block => {
+                    if (block.balance) {
+                        const expiryDate = new Date(block.expiry_date);
+                        tooltip += `\n  ${formatNumber(Math.floor(parseFloat(block.balance)))} expires ${expiryDate.toLocaleDateString()}`;
+                    }
+                });
+            }
+
+            // Add reset instructions
+            tooltip += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+            tooltip += `\nCommands (Ctrl+Shift+P):`;
+            tooltip += `\n  • Reset Usage A Counter`;
+            tooltip += `\n  • Reset Usage B Counter`;
+            tooltip += `\n  • Set Auggie Portal Link`;
+
+            statusBarItem.tooltip = tooltip;
         } else {
             throw new Error('Could not parse credits from response');
         }
@@ -196,20 +296,20 @@ async function fetchCredits(portalLink) {
             display_name: unit.display_name
         })));
 
-        // Use the first pricing unit (or find the one for "User Messages")
+        // Use the first pricing unit (or find the one for "Credits")
         let pricingUnitId = pricingUnits[0].id;
 
-        // Try to find "User Messages" pricing unit specifically
-        const userMessageUnit = pricingUnits.find(unit =>
-            unit.name === 'usermessages' ||
-            unit.display_name === 'User Messages'
+        // Try to find "Credits" pricing unit specifically
+        const creditsUnit = pricingUnits.find(unit =>
+            unit.name === 'credits' ||
+            unit.display_name === 'Credits'
         );
 
-        if (userMessageUnit) {
-            pricingUnitId = userMessageUnit.id;
-            console.log('✅ Found User Messages pricing unit:', userMessageUnit);
+        if (creditsUnit) {
+            pricingUnitId = creditsUnit.id;
+            console.log('✅ Found Credits pricing unit:', creditsUnit);
         } else {
-            console.log('⚠️ User Messages unit not found, using first unit:', pricingUnits[0]);
+            console.log('⚠️ Credits unit not found, using first unit:', pricingUnits[0]);
         }
 
         console.log(`🎯 Using Customer ID: ${customerId}, Pricing Unit ID: ${pricingUnitId}`);
@@ -239,7 +339,12 @@ async function fetchCredits(portalLink) {
             const credits = parseFloat(creditsBalance);
             if (!isNaN(credits)) {
                 console.log('✅ Successfully got credits from ORB API:', credits);
-                return credits;
+
+                // Return credits data with balance and credit blocks
+                return {
+                    balance: Math.floor(credits),
+                    creditBlocks: ledgerData.credit_blocks || []
+                };
             }
         }
 
