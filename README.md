@@ -12,6 +12,8 @@ Track your Auggie credits in real-time directly in your VS Code status bar.
 - **Simple Setup** - One-time configuration with your portal link
 - **Secure Token Handling** - Uses official ORB API endpoints
 
+![View Usage Stats](https://raw.githubusercontent.com/planetdaz/augment-credits/main/media/updated-stats.png)
+
 ## Setup Guide
 
 ### Step 1: Access Your Augment Account
